@@ -1,0 +1,118 @@
+---
+title: "syndiniales_project"
+author: "Margaret Rettig"
+date: '2022-06-20'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##R Setup
+```{r}
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("phyloseq")
+```
+```{r}
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("DESeq2")
+```
+
+```{r}
+library(phyloseq)
+library(ggplot2)
+library(tidyr)
+library(devtools)
+library(vegan)
+library(DESeq2)
+library(dendextend)
+library(readxl)
+library(dplyr)
+```
+
+##Set Working Directory
+```{r}
+setwd("~/Desktop/surfo_project")
+```
+
+##Import Data
+EXPORTS Sample data 
+```{r}
+EXPORTS_Samples_MISEQ_PLATE <- read_excel("Downloads/EXPORTS - Samples_MISEQ PLATE.xlsx", 
+  + sheet = "96 samples - description") #this works in the console but not here UGH i could not tell u why
+View(EXPORTS_Samples_MISEQ_PLATE)                                   
+```
+Taxonomy Data
+```{r}
+taxonomy_data <- as.matrix(read.delim("~/Downloads/syn_asv_taxonomy.tsv"))
+View(taxonomy_data)
+```
+Sample Information
+```{r}
+sample_information <- read.delim("~/Downloads/syn_sample_info.tsv")
+View(sample_information)
+```
+will cause problems, always
+```{r}
+counts <- read.table("~/Desktop/surfo_project/syn_asv_counts.tsv", header=T, row.names=1,check.names=F, sep="\t")
+taxa <- as.matrix(read.table("~/Desktop/surfo_project/syn_asv_taxonomy_correct.tsv",header=T, row.names=1,check.names=F, sep="\t"))
+samples <- read.table("~/Desktop/surfo_project/syn_sample_info (1).tsv", header=T, row.names=1,check.names=F, sep="\t")
+```
+
+##Create Phyloseq Object
+```{r}
+count_tab <- otu_table(counts, taxa_are_rows = TRUE, errorIfNULL = FALSE)
+tax_tab <- tax_table(taxa) #you have got to be kidding me
+sample_info <- sample_data(samples)
+ASV_phyloseq <- phyloseq(count_tab, tax_tab, sample_info)
+```
+##Examine Taxa by Order
+```{r}
+taxa_df %>%
+  filter(!is.na(Order)) %>% 
+  group_by(Order) %>%
+  summarize(count = n()) %>% 
+  arrange(-count)
+```
+
+##Examine Taxa by Family
+```{r}
+taxa_df %>%
+  filter(!is.na(Family)) %>% 
+  group_by(Family) %>%
+  summarize(count = n()) %>% 
+  arrange(-count)
+```
+##Examine by Genus
+```{r}
+taxa_df %>%
+  filter(!is.na(Genus)) %>% 
+  group_by(Genus) %>%
+  summarize(count = n()) %>% 
+  arrange(-count)
+```
+
+##Examine counts by Species
+```{r}
+taxa_df %>%
+  filter(!is.na(Species)) %>% 
+  group_by(Species) %>%
+  summarize(count = n()) %>% 
+  arrange(-count)
+```
+
+##Examine OTU Data
+```{r}
+
+```
+
+##Plot 
+```{r}
+plot_bar(ASV_phyloseq, fill = "Order")
+```
+
