@@ -24,16 +24,26 @@ BiocManager::install("DESeq2")
 ```
 
 ```{r}
-library(phyloseq)
-library(ggplot2)
-library(tidyr)
-library(devtools)
-library(vegan)
-library(DESeq2)
-library(dendextend)
-library(readxl)
-library(dplyr)
+library("devtools")
+library("ggplot2")
+library("phyloseq")
+library("vegan")
+library("DESeq2") # might not need
+library("dendextend") #might not need
+library("pBrackets") #might not need
+library("tidyr")
+library("viridis") #colors
+library("reshape")
+library("ape") # can't remember what this was for...
+library("ggrepel")
+library("tibble")
+library("ggsci")
+library("dplyr")
+library("devtools")
+library("readxl")
+
 ```
+
 
 ##Set Working Directory
 ```{r}
@@ -41,60 +51,56 @@ setwd("~/Desktop/surfo_project")
 ```
 
 ##Import Data
-EXPORTS Sample data 
-```{r}
-EXPORTS_Samples_MISEQ_PLATE <- read_excel("Downloads/EXPORTS - Samples_MISEQ PLATE.xlsx", 
-  + sheet = "96 samples - description") #this works in the console but not here UGH i could not tell u why
-View(EXPORTS_Samples_MISEQ_PLATE)                                   
-```
-Taxonomy Data
-```{r}
-taxonomy_data <- as.matrix(read.delim("~/Downloads/syn_asv_taxonomy.tsv"))
-View(taxonomy_data)
-```
-Sample Information
-```{r}
-sample_information <- read.delim("~/Downloads/syn_sample_info.tsv")
-View(sample_information)
-```
-will cause problems, always
+
 ```{r}
 counts <- read.table("~/Desktop/surfo_project/syn_asv_counts.tsv", header=T, row.names=1,check.names=F, sep="\t")
 taxa <- as.matrix(read.table("~/Desktop/surfo_project/syn_asv_taxonomy_correct.tsv",header=T, row.names=1,check.names=F, sep="\t"))
 samples <- read.table("~/Desktop/surfo_project/syn_sample_info (1).tsv", header=T, row.names=1,check.names=F, sep="\t")
 ```
-
+##Create Data frames for basic dplyr analysis
+```{r} 
+taxa_df <- as.data.frame(taxa)
+taxa_df <- rownames_to_column(taxa_df, "ASV")
+otus_df <- as.data.frame(counts)
+```
 ##Create Phyloseq Object
 ```{r}
 count_tab <- otu_table(counts, taxa_are_rows = TRUE, errorIfNULL = FALSE)
-tax_tab <- tax_table(taxa) #you have got to be kidding me
+tax_tab <- tax_table(taxa) 
 sample_info <- sample_data(samples)
 ASV_phyloseq <- phyloseq(count_tab, tax_tab, sample_info)
 ```
+
 ##Examine Taxa by Order
 ```{r}
-taxa_df %>%
+ASV_number <- taxa_df %>%
   filter(!is.na(Order)) %>% 
   group_by(Order) %>%
-  summarize(count = n()) %>% 
-  arrange(-count)
+  summarize(ASV_per_order = n()) %>% 
+  arrange(-ASV_per_order)
+head(ASV_number)
+```
+##Graph of ASVs per Order
+```{r}
+ggplot(data = ASV_number, mapping = aes(x = Order, y = ASV_per_order)) + 
+  geom_bar(stat = "identity")
 ```
 
 ##Examine Taxa by Family
 ```{r}
-taxa_df %>%
+taxa_df %>% 
   filter(!is.na(Family)) %>% 
   group_by(Family) %>%
-  summarize(count = n()) %>% 
-  arrange(-count)
+  summarize(ASVs_per_family = n()) %>% 
+  arrange(-ASVs_per_family)
 ```
 ##Examine by Genus
 ```{r}
 taxa_df %>%
   filter(!is.na(Genus)) %>% 
   group_by(Genus) %>%
-  summarize(count = n()) %>% 
-  arrange(-count)
+  summarize(ASVs_per_genus = n()) %>% 
+  arrange(-ASVs_per_genus)
 ```
 
 ##Examine counts by Species
@@ -105,14 +111,158 @@ taxa_df %>%
   summarize(count = n()) %>% 
   arrange(-count)
 ```
-
-##Examine OTU Data
+#Examine Counts by Depth Layer and Order
 ```{r}
 
 ```
 
-##Plot 
+##Community Composition
 ```{r}
-plot_bar(ASV_phyloseq, fill = "Order")
+#plot_bar(ASV_phyloseq, fill = "Order") #basic plot of abundance colored by order
+plot_bar(ASV_phyloseq, x="Sample", fill ="Order") + 
+    geom_bar(stat = "identity") +
+    guides(fill = guide_legend(keywidth = 0.25, keyheight = 0.25))
+        
+```
+
+```{r}
+#plot_bar(ASV_phyloseq, fill = "depth_layer", facet_grid = "Order")
+plot_bar(ASV_phyloseq, x="Sample", fill ="depth_layer", facet_grid = "Order")+geom_bar(stat="identity")
+```
+
+```{r}
+plot_bar(ASV_phyloseq, x = "Order", fill = "depth_layer") +
+  geom_bar(stat = "identity")
+```
+
+```{r}
+plot_bar(ps_abundance, x = "depth_layer", y = "Abundance", fill = "Family") +
+  geom_bar(stat = "identity") + 
+  guides(fill = guide_legend(keywidth = 0.25, keyheight = 0.25))
+```
+
+```{r}
+ps_abundance <- transform_sample_counts(ASV_phyloseq, function(x) x/sum(x))
+
+#dino_group_III <- subset_taxa(ps_abundance, Order == "Dino-Group-III")
+#plot_bar(dino_group_III, "Family", fill = "Species", facet_grid = ~date) 
+
+syndiniales <- subset_taxa(ps_abundance, Class == "Syndiniales")
+plot_bar(syndiniales, "Order", fill = "Family", facet_grid = ~julianD) +
+  geom_bar(stat = "identity") +
+  guides(fill = guide_legend(keywidth = 0.25, keyheight = 0.25))
+```
+#Relative Abundance Percentage Calculation 
+
+```{r}
+rel_abundance <- sample_and_taxa %>% 
+  group_by(otu) %>%
+  mutate(relative_abundance_percentage = (relative_abundance*100)) %>% 
+  select(Order, relative_abundance_percentage, julianD, date)
+
+```
+```{r}
+ggplot(rel_abundance, aes(fill = Order, y = relative_abundance_percentage, x = date)) +
+    geom_bar(position = "fill", stat = "identity") +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) 
+
+```
+```{r}
+plot_richness(ASV_phyloseq, x="julianD", color="depth",  measures=c("Chao1", "Shannon")) + 
+  geom_point(size=2) +
+  scale_color_gradient(low = "#56B1F7", high = "#132B43") +
+  scale_fill_gradient(low = "#56B1F7", high = "#132B43") +
+  theme(legend.title = element_blank())
+```
+
+```{r}
+dino_order <- ASV_phyloseq %>% 
+  tax_glom(taxrank = "Order") %>% 
+  transform_sample_counts(function(x) {x/sum(x)} ) %>% 
+  psmelt() %>% 
+  arrange(Class)
+ggplot(dino_order, aes(x = date, y = Abundance, fill = Order)) +
+  geom_bar(position = "fill", stat = "identity") +
+  theme(axis.title.x = element_blank()) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  guides(fill = guide_legend(keywidth = 1, keyheight = 1)) +
+  ylab("Relative Abundance")
+```
+
+```{r}
+# dino_genus <- ASV_phyloseq %>% 
+#   tax_glom(taxrank = "Genus") %>% 
+#   transform_sample_counts(function(x) {x/sum(x)} ) %>% 
+#   psmelt() %>% 
+#   arrange(Order)
+
+ggplot(dino_genus, aes(x = date, y = Abundance, fill = Order)) +
+  facet_grid('depth_layer') +
+  geom_bar(position = "fill", stat = "identity") +
+  theme(axis.title.x = element_blank()) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  guides(fill = guide_legend(keywidth = 0.25, keyheight = 0.25)) + 
+  ylab("Relative Abundance") 
+```
+
+
+
+##Basic Plots
+```{r}
+plot_bar(ASV_phyloseq, fill = "Genus")
+```
+```{r}
+plot_bar(ASV_phyloseq, "Order", fill = "Family", facet_grid = ~depth_layer) 
+```
+
+```{r}
+alpha_meas = c("Observed", "Chao1", "ACE", "Shannon", "Simpson", "InvSimpson")
+(p <- plot_richness(ASV_phyloseq, measures = alpha_meas)) #add color?
+```
+##Phyloseq Plots
+```{r}
+ntaxa(ASV_phyloseq)
+nsamples(ASV_phyloseq)
+sample_names(ASV_phyloseq)
+```
+
+```{r}
+plot_bar(ASV_phyloseq, fill = "Genus")
+```
+```{r}
+plot_bar(ASV_phyloseq, "Order", fill = "Genus", facet_grid = ~depth_layer)
+```
+
+
+##Depth / ASV Manipulation + Analysis
+```{r}
+rotated <- t(otus_df) #transpose data frame to have sample id as column name
+rotated <- as.data.frame(rotated)
+rotated <- rownames_to_column(rotated, "sample_id") #make column of sample IDs 
+head(rotated) #check to make sure it worked
+```
+
+```{r}
+join_rotated <- rownames_to_column(samples, "sample_id") #create column of sample IDs for joining
+head(join_rotated) #check on it
+```
+**Join Rotated and join_rotated data frames to get sample data and ASV counts in the same data frame**
+```{r}
+counts_samples <- left_join(rotated, join_rotated)
+head(counts_samples)
+```
+**Calculate Number of ASVs per depth layer**
+```{r}
+
+```
+
+##Presence/Absence Data Analyisis
+```{r}
+
+```
+
+##Dendrogram 
+```{r}
+
 ```
 
