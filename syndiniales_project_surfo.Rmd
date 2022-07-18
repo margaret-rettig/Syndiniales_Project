@@ -47,20 +47,20 @@ library("readxl")
 
 ##Set Working Directory
 ```{r}
-setwd("~/Desktop/surfo_project")
+setwd("~/Desktop/surfo_project") #set files to save to folder on desktop
 ```
 
 ##Import Data
 
 ```{r}
-counts <- read.table("~/Desktop/surfo_project/syn_asv_counts.tsv", header=T, row.names=1,check.names=F, sep="\t")
-taxa <- as.matrix(read.table("~/Desktop/surfo_project/syn_asv_taxonomy_correct.tsv",header=T, row.names=1,check.names=F, sep="\t"))
-samples <- read.table("~/Desktop/surfo_project/syn_sample_info (1).tsv", header=T, row.names=1,check.names=F, sep="\t")
+counts <- read.table("~/Desktop/surfo_project/syn_asv_counts.tsv", header=T, row.names=1,check.names=F, sep="\t") #read in file with ASV counts as a table
+taxa <- as.matrix(read.table("~/Desktop/surfo_project/syn_asv_taxonomy_correct.tsv",header=T, row.names=1,check.names=F, sep="\t")) #read file with taxa information as a matrix
+samples <- read.table("~/Desktop/surfo_project/syn_sample_info (1).tsv", header=T, row.names=1,check.names=F, sep="\t") #read file with sample information as a table
 ```
 ##Create Data frames for basic dplyr analysis
 ```{r} 
 taxa_df <- as.data.frame(taxa)
-taxa_df <- rownames_to_column(taxa_df, "ASV")
+taxa_df <- rownames_to_column(taxa_df, "ASV") #take row name labels and make them the first column variable
 otus_df <- as.data.frame(counts)
 ```
 ##Create Phyloseq Object
@@ -68,7 +68,7 @@ otus_df <- as.data.frame(counts)
 count_tab <- otu_table(counts, taxa_are_rows = TRUE, errorIfNULL = FALSE)
 tax_tab <- tax_table(taxa) 
 sample_info <- sample_data(samples)
-ASV_phyloseq <- phyloseq(count_tab, tax_tab, sample_info)
+ASV_phyloseq <- phyloseq(count_tab, tax_tab, sample_info) #creates phyloseq class object (used for genomic data analysis w/ phyloseq pacakge)
 ```
 
 ##Examine Taxa by Order
@@ -76,30 +76,31 @@ ASV_phyloseq <- phyloseq(count_tab, tax_tab, sample_info)
 ASV_number <- taxa_df %>%
   filter(!is.na(Order)) %>% 
   group_by(Order) %>%
-  summarize(ASV_per_order = n()) %>% 
-  arrange(-ASV_per_order)
+  summarize(ASV_per_order = n()) %>% #compute number of ASVs in each order group
+  arrange(-ASV_per_order) #arrange in descending order
 head(ASV_number)
 ```
 ##Graph of ASVs per Order
 ```{r}
 ggplot(data = ASV_number, mapping = aes(x = Order, y = ASV_per_order)) + 
-  geom_bar(stat = "identity")
+  geom_bar(stat = "identity") 
+#bar graph of the number of ASVs per order
 ```
 
 ##Examine Taxa by Family
 ```{r}
 taxa_df %>% 
   filter(!is.na(Family)) %>% 
-  group_by(Family) %>%
-  summarize(ASVs_per_family = n()) %>% 
-  arrange(-ASVs_per_family)
+  group_by(Family) %>% 
+  summarize(ASVs_per_family = n()) %>% #calculate number of ASVs present in each family
+  arrange(-ASVs_per_family) #arrange number in decreasing order
 ```
 ##Examine by Genus
 ```{r}
 taxa_df %>%
   filter(!is.na(Genus)) %>% 
   group_by(Genus) %>%
-  summarize(ASVs_per_genus = n()) %>% 
+  summarize(ASVs_per_genus = n()) %>% #calculate number of ASVs per genus
   arrange(-ASVs_per_genus)
 ```
 
@@ -108,12 +109,8 @@ taxa_df %>%
 taxa_df %>%
   filter(!is.na(Species)) %>% 
   group_by(Species) %>%
-  summarize(count = n()) %>% 
+  summarize(count = n()) %>% #number of ASVs per species
   arrange(-count)
-```
-#Examine Counts by Depth Layer and Order
-```{r}
-
 ```
 
 ##Community Composition
@@ -122,12 +119,13 @@ taxa_df %>%
 plot_bar(ASV_phyloseq, x="Sample", fill ="Order") + 
     geom_bar(stat = "identity") +
     guides(fill = guide_legend(keywidth = 0.25, keyheight = 0.25))
-        
+  
 ```
 
 ```{r}
 #plot_bar(ASV_phyloseq, fill = "depth_layer", facet_grid = "Order")
-plot_bar(ASV_phyloseq, x="Sample", fill ="depth_layer", facet_grid = "Order")+geom_bar(stat="identity")
+plot_bar(ASV_phyloseq, x="Sample", fill ="depth_layer", facet_grid = "Order")
+    +geom_bar(stat="identity")
 ```
 
 ```{r}
@@ -140,15 +138,20 @@ plot_bar(ps_abundance, x = "depth_layer", y = "Abundance", fill = "Family") +
   geom_bar(stat = "identity") + 
   guides(fill = guide_legend(keywidth = 0.25, keyheight = 0.25))
 ```
+```{r}
+plot_bar(ps_abundance, x = "Order", fill = "depth_layer") +
+  geom_bar(stat = "identity") 
+  
+```
 
 ```{r}
-ps_abundance <- transform_sample_counts(ASV_phyloseq, function(x) x/sum(x))
+#ps_abundance <- transform_sample_counts(ASV_phyloseq, function(x) x/sum(x))
 
 #dino_group_III <- subset_taxa(ps_abundance, Order == "Dino-Group-III")
 #plot_bar(dino_group_III, "Family", fill = "Species", facet_grid = ~date) 
 
 syndiniales <- subset_taxa(ps_abundance, Class == "Syndiniales")
-plot_bar(syndiniales, "Order", fill = "Family", facet_grid = ~julianD) +
+plot_bar(syndiniales, "Class", fill = "Order", facet_grid = ~julianD) +
   geom_bar(stat = "identity") +
   guides(fill = guide_legend(keywidth = 0.25, keyheight = 0.25))
 ```
@@ -190,11 +193,11 @@ ggplot(dino_order, aes(x = date, y = Abundance, fill = Order)) +
 ```
 
 ```{r}
-# dino_genus <- ASV_phyloseq %>% 
-#   tax_glom(taxrank = "Genus") %>% 
-#   transform_sample_counts(function(x) {x/sum(x)} ) %>% 
-#   psmelt() %>% 
-#   arrange(Order)
+ dino_genus <- ASV_phyloseq %>% 
+  tax_glom(taxrank = "Genus") %>% 
+   transform_sample_counts(function(x) {x/sum(x)} ) %>% 
+   psmelt() %>% 
+   arrange(Order)
 
 ggplot(dino_genus, aes(x = date, y = Abundance, fill = Order)) +
   facet_grid('depth_layer') +
@@ -208,32 +211,16 @@ ggplot(dino_genus, aes(x = date, y = Abundance, fill = Order)) +
 
 
 ##Basic Plots
+
 ```{r}
-plot_bar(ASV_phyloseq, fill = "Genus")
-```
-```{r}
-plot_bar(ASV_phyloseq, "Order", fill = "Family", facet_grid = ~depth_layer) 
+plot_bar(ASV_phyloseq, "Order", fill = "Family", facet_grid = ~depth_layer) #potentially useful with some work
+
 ```
 
 ```{r}
 alpha_meas = c("Observed", "Chao1", "ACE", "Shannon", "Simpson", "InvSimpson")
-(p <- plot_richness(ASV_phyloseq, measures = alpha_meas)) #add color?
+(p <- plot_richness(ASV_phyloseq, measures = alpha_meas)) #diversity measures are not particularly useful per tatiana 
 ```
-##Phyloseq Plots
-```{r}
-ntaxa(ASV_phyloseq)
-nsamples(ASV_phyloseq)
-sample_names(ASV_phyloseq)
-```
-
-```{r}
-plot_bar(ASV_phyloseq, fill = "Genus")
-```
-
-```{r}
-plot_bar(ASV_phyloseq, "Order", fill = "Genus", facet_grid = ~depth_layer)
-```
-
 
 ##Depth / ASV Manipulation + Analysis
 ```{r}
@@ -261,9 +248,9 @@ counts_samples %>%
 ```
 ```{r}
 surf_ml_counts <- counts_samples %>% 
-  filter(depth_layer == 'Surf-ML')
+  filter(depth_layer == 'Surf-ML') #creates a table of 
 head(surf_ml_counts)
-#code sums of number of non-zero ASVs per row (horizontal)
+
 ```
 ```{r}
 ml_100m_counts <- counts_samples %>%
@@ -289,11 +276,130 @@ alternative hypothesis: true difference in means is not equal to 0
 sample estimates:
 mean of x mean of y 
  127.8286  162.2500 
-
-
-##Presence/Absence Data Analyisis
+**Add Standard Deviation**
 ```{r}
+surface_sd <- sd(surface_asv_counts)
+surface_sd
+depth_sd <- sd(depth_asv_presence)
+depth_sd
+```
 
+##Time / ASV Manipulation + Analysis
+```{r}
+epoch_ASV <- counts_samples %>%
+  group_by(epoch) # %>%
+  #summarize(samples_per_epoch = n()) %>% 
+ # arrange(-samples_per_epoch)
+print(epoch_ASV)
+```
+**Epoch 1 Data Filtering and Calculations**
+```{r}
+epoch1_samples <- counts_samples %>% 
+  filter(epoch == "E1")  %>% 
+  mutate(epoch1_counts) %>% 
+  select(sample_id, epoch, epoch1_counts)
+epoch1_counts <- rowSums(epoch1_samples != 0)
+print(epoch1_counts)
+epoch1_mean = mean(epoch1_counts)
+print(epoch1_mean)
+```
+Epoch Means: 154 115 139 127 122 117 143 138 163 125
+Average Epoch 1 Mean: 134.3
+
+```{r}
+sd(epoch1_counts)
+```
+Epoch 1 Standard Deviation: 15.93773
+
+**Epoch 2 Data Filtering and Calculations**
+```{r}
+epoch2_samples <- counts_samples %>% 
+  filter(epoch == "E2") #%>% 
+  # mutate(epoch2_counts) %>% 
+  # select(sample_id, epoch, epoch2_counts)
+epoch2_counts <- rowSums(epoch2_samples != 0)
+print(epoch2_counts)
+epoch2_mean = mean(epoch2_counts)
+print(epoch2_mean)
+```
+Epoch 2 Mean ASV Counts: 172 142 120 120  81 112 127 193 210  85 121 109 161
+Epoch 2 Average ASV Count: 134.8462
+```{r}
+sd(epoch2_counts)
+```
+Epoch 2 ASV presence standard deviation: 39.17237
+
+**Epoch 3 Data Filtering and Calculations**
+```{r}
+epoch3_samples <- counts_samples %>% 
+   filter(epoch == "E3") #%>%
+  # mutate(epoch3_counts) %>% 
+  # select(sample_id, epoch, epoch3_counts)
+epoch3_counts <- rowSums(epoch3_samples != 0)
+print(epoch3_counts)
+epoch3_mean = mean(epoch3_counts)
+print(epoch3_mean)
+```
+Epoch 3 Sample ASV Presence: 159 141 123 127 123 177 149 164 115 132 185 162 132 130 207 134 150 161 175 177 132 134 145 141 122 130 130 136 129 124 147 130
+Epoch 3 Average ASV Count: 144.4688
+```{r}
+sd(epoch3_counts)
+```
+Epoch 3 ASV presence standard deviation: 21.78337
+
+**Merge ASV Presence Tables**
+```{r}
+epoch1_samples_df <- as.data.frame(epoch1_samples)
+epoch2_samples_df <- as.data.frame(epoch2_samples)
+epoch3_samples_df <- as.data.frame(epoch3_samples)
+epoch1_samples_temp <- rename(epoch1_samples_df, epoch_counts = epoch1_counts)
+epoch2_temp <- rename(epoch2_samples_df, epoch_counts = epoch2_counts)
+epoch3_temp <- rename(epoch3_samples_df, epoch_counts = epoch3_counts) 
+presence_epoch_1 <- rbind(epoch1_samples_temp, epoch2_temp, by = 'sample_id')
+presence_epoch_2 <- rbind(presence_epoch_1, epoch3_temp, by = "sample_id")
+presence_epoch_3 <- presence_epoch_2[-c(24),]
+presence_epoch_final <- presence_epoch_3[-c(56),]
+```
+
+**ANOVA to test for statistical significance in variance of means**
+```{r}
+epoch_aov <-aov(epoch_counts ~ epoch, data = presence_epoch_final)
+summary(epoch_aov)
+```
+            Df Sum Sq Mean Sq F value Pr(>F)
+epoch        2   1580     790    1.16  0.321
+Residuals   52  35410     681
+
+P value is greater then the significance level of 0.05, so we support the null hypothesis. The difference between the means is not statistically significant.
+##NMDS Plot
+```{r}
+syn_nmds <- ordinate(ASV_phyloseq, method="NMDS", distance="jaccard")
+syn_nmds$stress #0.06 good fit
+plot_ordination(ASV_phyloseq, syn_nmds, color="layer_epoch") +
+  scale_color_manual(values=c("#FFDB6D", "#56B4E9", "#C4961A", "#4E84C4", "#D16103", "#293352")) +
+  scale_fill_manual(values=c("#FFDB6D", "#56B4E9", "#C4961A", "#4E84C4", "#D16103", "#293352")) +
+  geom_point(aes(colour=factor(layer_epoch))) +
+  geom_point(size=3)+
+  labs(col="layer_epoch") + 
+  theme_bw()+
+  theme(legend.title = element_blank())
+```
+
+##Ordination Plot
+```{r}
+pcoa <- ordinate(ASV_phyloseq, method="MDS", distance="euclidean")
+eigen_vals <- pcoa$values$Eigenvalues 
+
+plot_ordination(ASV_phyloseq, pcoa, color="layer_epoch") +
+  scale_color_manual(values=c("#FFDB6D", "#56B4E9", "#C4961A", "#4E84C4", "#D16103", "#293352")) +
+  scale_fill_manual(values=c("#FFDB6D", "#56B4E9", "#C4961A", "#4E84C4", "#D16103", "#293352")) +
+  geom_point(aes(colour=factor(layer_epoch))) +
+  #geom_point(aes(shape=factor(type)),size=3) + 
+  labs(col="layer_epoch") + 
+  stat_ellipse(geom = "polygon", alpha = 0.2, aes(group = depth_layer))+
+  coord_fixed(sqrt(eigen_vals[2]/eigen_vals[1])) + 
+  theme_bw()+
+  theme(legend.title = element_blank())
 ```
 
 ##Dendrogram 
