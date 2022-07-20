@@ -41,7 +41,9 @@ library("ggsci")
 library("dplyr")
 library("devtools")
 library("readxl")
-
+library("gplots")
+library("ggpubr")
+library("abdiv")
 ```
 
 
@@ -83,7 +85,8 @@ head(ASV_number)
 ##Graph of ASVs per Order
 ```{r}
 ggplot(data = ASV_number, mapping = aes(x = Order, y = ASV_per_order)) + 
-  geom_bar(stat = "identity") 
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = ASV_per_order), vjust = -0.2)
 #bar graph of the number of ASVs per order
 ```
 
@@ -143,6 +146,7 @@ plot_bar(ps_abundance, x = "Order", fill = "depth_layer") +
   geom_bar(stat = "identity") 
   
 ```
+
 
 ```{r}
 #ps_abundance <- transform_sample_counts(ASV_phyloseq, function(x) x/sum(x))
@@ -371,6 +375,35 @@ epoch        2   1580     790    1.16  0.321
 Residuals   52  35410     681
 
 P value is greater then the significance level of 0.05, so we support the null hypothesis. The difference between the means is not statistically significant.
+
+##Boxplots 
+```{r}
+E1_summary <- summary(epoch1_counts)
+print(E1_summary)
+E2_summary <- summary(epoch2_counts)
+print(E2_summary)
+E3_summary <- summary(epoch3_counts)
+E3_summary
+```
+
+```{r}
+# ggplot(presence_epoch_final, aes(epoch, epoch_counts)) +
+#   geom_boxplot(outlier.colour="black", outlier.shape=16,
+#              outlier.size=2, notch=FALSE)
+
+boxplot(E1_summary, E2_summary, E3_summary, main = "ASV Presence Over Time", ylab = "Epoch", xlab = 'Number of ASVs Present', names = c("E1", "E2", "E3"), col = "dark green", horizontal = TRUE)
+```
+```{r}
+surf_sum <- summary(surface_asv_counts)
+surf_sum
+depth_sum <- summary(depth_asv_presence)
+depth_sum
+```
+
+```{r}
+a <- boxplot(surf_sum, depth_sum, main = "ASV Presence Variation Across Depths", names = c("Surface - ML", "ML - 100M"), horizontal = TRUE, xlab = "Number of ASVs Present", ylab = "Depth")
+```
+
 ##NMDS Plot
 ```{r}
 syn_nmds <- ordinate(ASV_phyloseq, method="NMDS", distance="jaccard")
@@ -402,7 +435,40 @@ plot_ordination(ASV_phyloseq, pcoa, color="layer_epoch") +
   theme(legend.title = element_blank())
 ```
 
+##Relative Abundance / Presence Absence 
+```{r}
+OTU.clean.relabund <- sweep(otus_df,1,rowSums(otus_df),"/")
+rowSums(OTU.clean.relabund)
+```
+
+```{r}
+ggplot(OTU.clean.relabund, aes(x = date, y = Abundance, fill = Order)) +
+  geom_bar(position = "fill", stat = "identity") +
+  theme(axis.title.x = element_blank()) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  guides(fill = guide_legend(keywidth = 0.25, keyheight = 0.25)) + 
+  ylab("Relative Abundance") 
+```
+
+##Venn Diagram
+**Jaccard Index Surface Samples vs. Depth Samples**
+```{r}
+jaccard <- jaccard(surf_ml_counts, depth_asv_presence)
+jaccard
+```
+```{r}
+
+```
+
+
 ##Dendrogram 
+```{r}
+set.seed(1)
+dist_bray <- phyloseq::distance(ASV_phyloseq, method = "bray")
+comm.bray.clust <- hclust(dist_bray, method = "average")
+plot(comm.bray.clust, ylab = "Bray-Curtis dissimilarity")
+```
+##Dissimlarity Comparison
 ```{r}
 
 ```
