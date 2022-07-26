@@ -77,6 +77,21 @@ samples <- read.table("~/Desktop/surfo_project/syn_sample_info (1).tsv", header=
 taxa_df <- as.data.frame(taxa)
 taxa_df <- rownames_to_column(taxa_df, "ASV") #take row name labels and make them the first column variable
 otus_df <- as.data.frame(counts)
+sample_info <- as.data.frame(sample_info)
+```
+
+```{r}
+for(n in 1:length(samples$depth_layer)){ 
+  if (samples$depth_layer[n] == "ML-100m"){
+    samples$depth_layer[n] = "ML-75m"
+  }
+}
+
+head(samples)
+```
+```{r}
+#remove sample 46 -> only one with depth > 75m 
+samples <- samples[-45,]
 ```
 
 ##Create Phyloseq Object
@@ -104,7 +119,9 @@ head(ASV_number)
 ```{r}
 ggplot(data = ASV_number, mapping = aes(x = Order, y = ASV_per_order)) + 
   geom_bar(stat = "identity") +
-  geom_text(aes(label = ASV_per_order), vjust = -0.2)
+  geom_text(aes(label = ASV_per_order), vjust = -0.2) +
+  labs(y = "ASV richness") +
+  theme_classic() 
 #bar graph of the number of ASVs per order
 ```
 
@@ -150,27 +167,27 @@ plot_bar(ASV_phyloseq, x="Sample", fill ="Order") +
 
 ```{r}
 #plot_bar(ASV_phyloseq, fill = "depth_layer", facet_grid = "Order")
-plot_bar(ASV_phyloseq, x="Sample", fill ="depth_layer", facet_grid = "Order")
-    +geom_bar(stat="identity")
+plot_bar(ASV_phyloseq, x="Sample", fill ="depth_layer", facet_grid = "Order") + 
+  geom_bar(stat="identity")
 ```
 
 ```{r}
 plot_bar(ASV_phyloseq, x = "Order", fill = "depth_layer") +
   geom_bar(stat = "identity")
 ```
-
+**NA**
 ```{r}
 plot_bar(ps_abundance, x = "depth_layer", y = "Abundance", fill = "Family") +
   geom_bar(stat = "identity") + 
   guides(fill = guide_legend(keywidth = 0.25, keyheight = 0.25))
 ```
-
+**NA**
 ```{r}
 plot_bar(ps_abundance, x = "Order", fill = "depth_layer") +
   geom_bar(stat = "identity") 
   
 ```
-
+**NA**
 ```{r}
 #ps_abundance <- transform_sample_counts(ASV_phyloseq, function(x) x/sum(x))
 
@@ -192,14 +209,14 @@ rel_abundance <- sample_and_taxa %>%
   select(Order, relative_abundance_percentage, julianD, date)
 
 ```
-
+**NA**
 ```{r}
 ggplot(rel_abundance, aes(fill = Order, y = relative_abundance_percentage, x = date)) +
     geom_bar(position = "fill", stat = "identity") +
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) 
 
 ```
-
+**NA**
 ```{r}
 plot_richness(ASV_phyloseq, x="julianD", color="depth",  measures=c("Chao1", "Shannon")) + 
   geom_point(size=2) +
@@ -207,7 +224,7 @@ plot_richness(ASV_phyloseq, x="julianD", color="depth",  measures=c("Chao1", "Sh
   scale_fill_gradient(low = "#56B1F7", high = "#132B43") +
   theme(legend.title = element_blank())
 ```
-
+**N/A**
 ```{r}
 dino_order <- ASV_phyloseq %>% 
   tax_glom(taxrank = "Order") %>% 
@@ -223,19 +240,23 @@ ggplot(dino_order, aes(x = date, y = Abundance, fill = Order)) +
 ```
 
 ```{r}
- dino_genus <- ASV_phyloseq %>% 
+dino_genus <- ASV_phyloseq %>% 
   tax_glom(taxrank = "Genus") %>% 
-   transform_sample_counts(function(x) {x/sum(x)} ) %>% 
-   psmelt() %>% 
-   arrange(Order)
-
+  transform_sample_counts(function(x) {x/sum(x)} ) %>% 
+  psmelt() %>% 
+  arrange(Order)
+my_palette <- brewer.pal(name = "GnBu", n = 9)[5:9]
 ggplot(dino_genus, aes(x = date, y = Abundance, fill = Order)) +
-  facet_grid('depth_layer') +
+  facet_grid(factor(depth_layer, levels = c("Surf-ML", "ML-75m")) ~.) +
   geom_bar(position = "fill", stat = "identity") +
   theme(axis.title.x = element_blank()) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   guides(fill = guide_legend(keywidth = 0.25, keyheight = 0.25)) + 
-  ylab("Relative Abundance") 
+  ylab("Relative 18S Read Abundance") +
+  theme(panel.background = element_blank()) +
+  theme(strip.background = element_blank()) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  scale_fill_manual(values = my_palette) 
 ```
 
 ##Basic Plots
@@ -289,16 +310,16 @@ head(surf_ml_counts)
 ```
 
 ```{r}
-ml_100m_counts <- counts_samples %>%
-  filter(depth_layer == 'ML-100m')
-head(ml_100m_counts)
+ml_75m_counts <- counts_samples %>%
+  filter(depth_layer == 'ML-75m')
+head(ml_75m_counts)
 ```
 
 ```{r}
 surface_asv_counts <- rowSums(surf_ml_counts !=0)
 print(surface_asv_counts)
 surface_mean = mean(surface_asv_counts)
-depth_asv_presence <- rowSums(ml_100m_counts !=0)
+depth_asv_presence <- rowSums(ml_75m_counts !=0)
 print(depth_asv_presence)
 depth_mean = mean(depth_asv_presence)
 
@@ -334,9 +355,9 @@ print(epoch_ASV)
 
 ```{r}
 epoch1_samples <- counts_samples %>% 
-  filter(epoch == "E1")  %>% 
-  mutate(epoch1_counts) %>% 
-  select(sample_id, epoch, epoch1_counts)
+  filter(epoch == "E1")  #%>% 
+  # mutate(epoch1_counts) %>% 
+  # select(sample_id, epoch, epoch1_counts)
 epoch1_counts <- rowSums(epoch1_samples != 0)
 print(epoch1_counts)
 epoch1_mean = mean(epoch1_counts)
@@ -443,7 +464,7 @@ E3_summary
 #   geom_boxplot(outlier.colour="black", outlier.shape=16,
 #              outlier.size=2, notch=FALSE)
 
-boxplot(E1_summary, E2_summary, E3_summary, main = "ASV Presence Over Time", ylab = "Epoch", xlab = 'Number of ASVs Present', names = c("E1", "E2", "E3"), col = "dark green", horizontal = TRUE)
+boxplot(E1_summary, E2_summary, E3_summary, ylab = "ASV Richness", xlab = 'Epoch', names = c("E1", "E2", "E3"), col = "dark green")
 ```
 
 ```{r}
@@ -456,7 +477,7 @@ summaries_df <- as.data.frame(summaries)
 ```
 
 ```{r}
-a <- boxplot(surf_sum, depth_sum, main = "ASV Presence Variation Across Depths", names = c("Surface - ML", "ML - 100M"), horizontal = FALSE, xlab = "Number of ASVs Present", ylab = "Depth") 
+a <- boxplot(surf_sum, depth_sum, names = c("Surface - ML", "ML - 75M"), horizontal = FALSE, xlab = "Depth", ylab = "ASV Richness") 
 ```
 
 ##NMDS Plot
@@ -508,7 +529,8 @@ ggplot(OTU.clean.relabund, aes(x = date, y = Abundance, fill = Order)) +
   ylab("Relative Abundance") 
 ```
 
-##Venn Diagram **Jaccard Index Surface Samples vs. Depth Samples**
+##Venn Diagram 
+**Jaccard Index Surface Samples vs. Depth Samples**
 
 ```{r}
 jaccard <- jaccard(surf_ml_counts, depth_asv_presence)
@@ -536,7 +558,9 @@ venn
 ```
 
 ```{r}
-ps_venn(ASV_phyloseq, 'depth_layer')
+label <- c("Mixed Layer Depth - 75m      Surface - Mixed Layer", cex = 1.5)
+ps_venn(ASV_phyloseq, 'depth_layer', fills = c("light blue", "light green", "aquamarine1"), by = list('depth_layer'), adjust_labels = TRUE, main = label, quantities = list(cex = 4), shape = list(cex = 0.1), labels = FALSE, legend = TRUE)
+
 ```
 
 ##Dendrogram
@@ -554,10 +578,11 @@ plot(comm.bray.clust, ylab = "Bray-Curtis dissimilarity")
 
 ```
 
-##Taxonomy Information **Depth Community**
+##Taxonomy Information 
+**Depth Community**
 
 ```{r}
-ML_taxa <- subset(taxa_df, ASV %in% venn$`ML-100m`)
+ML_taxa <- subset(taxa_df, ASV %in% venn$`ML-75m`)
 ML_taxa
 ```
 
@@ -573,7 +598,9 @@ head(ML_order)
 ```{r}
 ggplot(data = ML_order, mapping = aes(x = Order, y = ASV_per_order)) +
   geom_bar(stat = "identity") +
-  geom_text(aes(label = ASV_per_order), vjust = -0.2)
+  geom_text(aes(label = ASV_per_order), vjust = -0.2) +
+  theme_classic() +
+  ylab("ASV Richness")
 ```
 
 **Surface Community**
@@ -595,7 +622,9 @@ head(surface_order)
 ```{r}
 ggplot(data = surface_order, mapping = aes(x= Order, y = ASV_per_order)) +
   geom_bar(stat = "identity") +
-  geom_text(aes(label = ASV_per_order), vjust = -0.2)
+  geom_text(aes(label = ASV_per_order), vjust = -0.2) +
+  theme_classic() +
+  ylab("ASV Richness")
 ```
 **Shared ASVs**
 ```{r}
@@ -613,6 +642,6 @@ head(shared_order)
 ```{r}
 ggplot(data = shared_order, mapping = aes(x = Order, y = ASV_per_order)) +
   geom_bar(stat = "identity") +
-  geom_text(aes(label = ASV_per_order))
+  geom_text(aes(label = ASV_per_order), vjust = -0.2)
 ```
  
